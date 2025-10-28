@@ -4,6 +4,7 @@
 *.tfstate.*
 .terraform.tfstate.lock.info
 .terraform.lock.hcl
+terraform.tfstate
 # General files
 .*.swp
 .*.swo
