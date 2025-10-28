@@ -1,0 +1,12 @@
+# Terraform files
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+.terraform.lock.hcl
+# General files
+.*.swp
+.*.swo
+*~
+.DS_Store
+Thumbs.db
