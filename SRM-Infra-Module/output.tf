@@ -8,5 +8,5 @@ output "alb_dns" {
 
 output "instance_public_ip" {
   description = "SRM instance public ip"
-  value = data.aws_instances.asg_instances.public_ips
+  value       = data.aws_instances.asg_instances.public_ips
 }

@@ -2,7 +2,7 @@
 # IAM role + Instance profile for SSM (Session Manager)
 ##################
 resource "aws_iam_role" "ec2_role" {
-  name = "srms-ec2-role-single"
+  name = "srms-ec2-role-${var.project_suffix}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -14,6 +14,7 @@ resource "aws_iam_role" "ec2_role" {
   })
 }
 
+
 resource "aws_iam_role_policy_attachment" "ssm_attach" {
   role       = aws_iam_role.ec2_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
@@ -21,8 +22,7 @@ resource "aws_iam_role_policy_attachment" "ssm_attach" {
 # An AWS IAM Instance Profile is a 
 # container for an IAM role that you can use to pass role information to an EC2 instance when the instance starts.
 # without storing the long term credentials on the instance.
-
 resource "aws_iam_instance_profile" "ec2_profile" {
-  name = "srms-ec2-profile-single"
+  name = "srms-ec2-profile-${var.project_suffix}"
   role = aws_iam_role.ec2_role.name
 }

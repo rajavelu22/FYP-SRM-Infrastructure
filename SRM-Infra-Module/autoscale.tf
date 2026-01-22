@@ -1,3 +1,18 @@
+terraform {
+  required_version = ">= 1.6.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"
+}
+
 ####################
 # AMI lookup (Ubuntu 22.04)
 ####################
@@ -15,7 +30,7 @@ data "aws_ami" "ubuntu_2204" {
 ####################
 
 resource "aws_launch_template" "app_lt" {
-  name_prefix   = "srms-lt-"
+  name_prefix = "srms-lt-${var.project_suffix}-"
   image_id      = data.aws_ami.ubuntu_2204.id
   instance_type = var.asg_instance_type
 
@@ -176,14 +191,15 @@ resource "aws_security_group" "ec2_sg_for_alb" {
 ####################
 
 resource "aws_lb" "app_alb" {
-  name               = "srms-app-alb"
+  name               = "srms-app-alb-${var.project_suffix}"
   load_balancer_type = "application"
-  subnets = [aws_subnet.main.id, aws_subnet.public_2.id]
-           # your single public subnet
+  subnets            = [aws_subnet.main.id, aws_subnet.public_2.id]
   security_groups    = [aws_security_group.alb_sg.id]
   enable_deletion_protection = false
 
-  tags = { Name = "srms-app-alb" }
+  tags = {
+    Name = "srms-app-alb-${var.project_suffix}"
+  }
 }
 
 resource "aws_lb_listener" "http" {
@@ -198,7 +214,7 @@ resource "aws_lb_listener" "http" {
 }
 
 resource "aws_lb_target_group" "app_tg" {
-  name     = "srms-app-tg"
+  name     = "srms-app-tg-${var.project_suffix}"
   port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
@@ -213,6 +229,7 @@ resource "aws_lb_target_group" "app_tg" {
   }
 }
 
+
 ####################
 # Auto Scaling Group
 ####################
@@ -223,33 +240,35 @@ data "aws_instances" "asg_instances" {
   }
 }
 resource "aws_autoscaling_group" "app_asg" {
-  name                      = "srms-asg"
-  max_size                  = var.asg_max_size
-  min_size                  = var.asg_min_size
-  desired_capacity          = var.asg_desired_capacity
-  # vpc_zone_identifier       = [aws_subnet.main.id]
+  name             = "srms-asg-${var.project_suffix}"
+  max_size         = var.asg_max_size
+  min_size         = var.asg_min_size
+  desired_capacity = var.asg_desired_capacity
+
   vpc_zone_identifier = [aws_subnet.main.id, aws_subnet.public_2.id]
 
   launch_template {
     id      = aws_launch_template.app_lt.id
     version = "$Latest"
   }
-  target_group_arns = [aws_lb_target_group.app_tg.arn]
+
+  target_group_arns         = [aws_lb_target_group.app_tg.arn]
   health_check_type         = "ELB"
   health_check_grace_period = 120
 
   tag {
     key                 = "Name"
-    value               = "srms-asg-instance"
+    value               = "srms-asg-instance-${var.project_suffix}"
     propagate_at_launch = true
   }
 }
+
 
 ####################
 # Target tracking scaling policy (scale on ASG average CPU)
 ####################
 resource "aws_autoscaling_policy" "cpu_target_tracking" {
-  name                   = "srms-cpu-target-tracking"
+  name                   = "srms-cpu-tt-${var.project_suffix}"
   autoscaling_group_name = aws_autoscaling_group.app_asg.name
   policy_type            = "TargetTrackingScaling"
 
@@ -260,6 +279,7 @@ resource "aws_autoscaling_policy" "cpu_target_tracking" {
     target_value = 50.0
   }
 }
+
 
 ####################
 # (Optional) legacy single-instance SG kept for compatibility if needed

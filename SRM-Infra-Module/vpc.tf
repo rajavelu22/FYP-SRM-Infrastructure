@@ -22,10 +22,10 @@ resource "aws_subnet" "main" {
 
 resource "aws_subnet" "public_2" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.2.0/24"                            # change if needed
+  cidr_block              = "10.0.2.0/24" # change if needed
   availability_zone       = data.aws_availability_zones.available.names[1]
   map_public_ip_on_launch = true
-  tags = { Name = "srms-public-subnet-2" }
+  tags                    = { Name = "srms-public-subnet-2" }
 }
 
 resource "aws_internet_gateway" "gw" {

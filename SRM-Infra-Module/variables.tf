@@ -35,11 +35,11 @@ variable "asg_min_size" {
 }
 variable "asg_desired_capacity" {
   type    = number
-  default = 1
+  default = 3
 }
 variable "asg_max_size" {
   type    = number
-  default = 3
+  default = 5
 }
 
 variable "app_repo_url" {
@@ -52,4 +52,10 @@ variable "ssh_allowed_cidr" {
   description = "CIDR allowed to SSH into instances (use your IP e.g. 203.0.113.5/32). Leave empty to allow 0.0.0.0/0 (NOT recommended)."
   type        = string
   default     = "0.0.0.0/0"
+}
+
+variable "project_suffix" {
+  description = "Short unique suffix for resource names (e.g. fyp, dev, v1)"
+  type        = string
+  default     = "fyp"
 }
