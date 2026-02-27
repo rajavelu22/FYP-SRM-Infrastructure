@@ -1,13 +1,11 @@
 ####################
 # (Optional) legacy single-instance SG kept for compatibility if needed
 ####################
+resource "aws_security_group" "alb_sg" {
+  name        = "allow-http-to-alb"
+  description = "Allow HTTP to ALB"
+  vpc_id      = var.vpc_id
 
-resource "aws_security_group" "allow_ssh" {
-  name        = "allow-ssh-and-app"
-  description = "Allow SSH, HTTP, and phpMyAdmin ports"
-  vpc_id      = aws_vpc.main.id
-
-  # HTTP
   ingress {
     from_port   = 80
     to_port     = 80
@@ -15,18 +13,71 @@ resource "aws_security_group" "allow_ssh" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # SSH - restrict to your IP (not 0.0.0.0/0)
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = { Name = "srms-alb-sg" }
+}
+
+# resource "aws_security_group" "allow_ssh" {
+#   name        = "allow-ssh-and-app"
+#   description = "Allow SSH, HTTP, and phpMyAdmin ports"
+#   vpc_id      = var.vpc_id
+
+#   # HTTP
+#   ingress {
+#     from_port   = 80
+#     to_port     = 80
+#     protocol    = "tcp"
+#     cidr_blocks = ["0.0.0.0/0"]
+#   }
+
+#   # SSH - restrict to your IP (not 0.0.0.0/0)
+#   ingress {
+#     from_port   = 22
+#     to_port     = 22
+#     protocol    = "tcp"
+#     cidr_blocks = var.ssh_allowed_cidr != "" ? [var.ssh_allowed_cidr] : ["0.0.0.0/0"]
+#   }
+
+#   # phpMyAdmin - restrict to your IP
+#   ingress {
+#     from_port   = 9090
+#     to_port     = 9090
+#     protocol    = "tcp"
+#     cidr_blocks = var.ssh_allowed_cidr != "" ? [var.ssh_allowed_cidr] : ["0.0.0.0/0"]
+#   }
+
+#   egress {
+#     from_port   = 0
+#     to_port     = 0
+#     protocol    = "-1"
+#     cidr_blocks = ["0.0.0.0/0"]
+#   }
+
+#   tags = { Name = "srms-instance-sg" }
+# }
+resource "aws_security_group" "ec2_sg" {
+  name        = "srms-ec2-sg"
+  description = "Allow traffic from ALB and SSH from admin"
+  vpc_id      = var.vpc_id
+
+  # HTTP from ALB only
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb_sg.id]
+  }
+
+  # SSH from your IP
   ingress {
     from_port   = 22
     to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = var.ssh_allowed_cidr != "" ? [var.ssh_allowed_cidr] : ["0.0.0.0/0"]
-  }
-
-  # phpMyAdmin - restrict to your IP
-  ingress {
-    from_port   = 9090
-    to_port     = 9090
     protocol    = "tcp"
     cidr_blocks = var.ssh_allowed_cidr != "" ? [var.ssh_allowed_cidr] : ["0.0.0.0/0"]
   }
@@ -38,7 +89,7 @@ resource "aws_security_group" "allow_ssh" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = { Name = "srms-instance-sg" }
+  tags = { Name = "srms-ec2-sg" }
 }
 
 ####################
@@ -48,7 +99,8 @@ resource "aws_security_group" "allow_ssh" {
 resource "aws_lb" "app_alb" {
   name               = "srms-app-alb-${var.project_suffix}"
   load_balancer_type = "application"
-  subnets            = [aws_subnet.main.id, aws_subnet.public_2.id]
+  subnets = var.public_subnet_ids
+
   security_groups    = [aws_security_group.alb_sg.id]
   enable_deletion_protection = false
 
@@ -72,7 +124,7 @@ resource "aws_lb_target_group" "app_tg" {
   name     = "srms-app-tg-${var.project_suffix}"
   port     = 80
   protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  vpc_id   = var.vpc_id
 
   health_check {
     path                = "/"

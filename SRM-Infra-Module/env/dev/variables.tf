@@ -1,8 +1,25 @@
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
+}
+variable "vpc_cidr" {
+  type    = string
+  default = "10.0.0.0/16"
+}
+
+variable "subnet_cidr" {
+  type    = string
+  default = "10.0.1.0/24"
+}
 variable "project_suffix" {
   description = "Short unique suffix for resource names (e.g. fyp, dev, v1)"
   type        = string
   default     = "fyp"
 }
+
+
+### Compute part
 variable "asg_min_size" {
   type    = number
   default = 1
@@ -30,26 +47,4 @@ variable "asg_instance_type" {
   description = "Instance type for autoscaled instances"
   type        = string
   default     = "t3.medium"
-}
-variable "vpc_id" {
-  description = "VPC ID where ALB resources will be created"
-  type        = string
-}
-
-variable "aws_iam_instance_profile_ec2_profile_name" {
-  description = "ARN of the EC2 instance profile created in the VPC module"
-  type        = string
-}
-variable "public_subnet_ids" {
-  description = "Public subnet IDs for ALB"
-  type        = list(string)
-}
-variable "aws_lb_target_group_arns" {
-  description = "List of ARNs for the ALB target groups"
-  type        = list(string)
-  
-}
-variable "alb_sg_id" {
-  description = "Security group ID of the ALB"
-  type        = string
 }

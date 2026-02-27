@@ -9,22 +9,18 @@ data "aws_ami" "ubuntu_2204" {
     values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
   }
 }
-
 ####################
 # Launch Template
 ####################
-
 resource "aws_launch_template" "app_lt" {
   name_prefix = "srms-lt-${var.project_suffix}-"
   image_id      = data.aws_ami.ubuntu_2204.id
   instance_type = var.asg_instance_type
 
   iam_instance_profile {
-    name = aws_iam_instance_profile.ec2_profile.name
+    name = var.aws_iam_instance_profile_ec2_profile_name
   }
-
   vpc_security_group_ids = [aws_security_group.ec2_sg_for_alb.id]
-
   user_data = base64encode(<<-EOF
     #!/bin/bash
     set -euo pipefail
@@ -103,74 +99,42 @@ resource "aws_launch_template" "app_lt" {
     EOF
   )
 }
-
 ####################
 # Security groups
 ####################
-resource "aws_security_group" "alb_sg" {
-  name        = "srms-alb-sg"
-  description = "ALB security group - allows HTTP from internet"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    description = "HTTP from internet"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  #create ssh access to alb sg
-  ingress {
-    description = "SSH from admin CIDR (if set)"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = { Name = "srms-alb-sg" }
-}
-
 resource "aws_security_group" "ec2_sg_for_alb" {
   name        = "srms-ec2-sg-alb"
   description = "Allow incoming HTTP from ALB only, and optional SSH from admin"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = var.vpc_id
 
-  # allow HTTP from ALB's security group
+  lifecycle {
+    create_before_destroy = true
+  }
+  # TEMP: allow BOTH old and new ALB SGs
   ingress {
-    description     = "HTTP from ALB security group"
+    description     = "HTTP from ALB (new)"
     from_port       = 80
     to_port         = 80
     protocol        = "tcp"
-    security_groups = [aws_security_group.alb_sg.id]
+    security_groups = [var.alb_sg_id]
   }
-
-  # optional SSH (restrict to your CIDR if provided)
+  # keep SSH unchanged
   ingress {
-    description = "SSH from admin CIDR (if set)"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = var.ssh_allowed_cidr != "" ? [var.ssh_allowed_cidr] : ["0.0.0.0/0"]
   }
-
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  tags = { Name = "srms-ec2-sg-alb" }
+  tags = {
+    Name = "srms-ec2-sg-alb"
+  }
 }
-
 ####################
 # Auto Scaling Group
 ####################
@@ -185,26 +149,20 @@ resource "aws_autoscaling_group" "app_asg" {
   max_size         = var.asg_max_size
   min_size         = var.asg_min_size
   desired_capacity = var.asg_desired_capacity
-
-  vpc_zone_identifier = [aws_subnet.main.id, aws_subnet.public_2.id]
-
+  vpc_zone_identifier = var.public_subnet_ids
   launch_template {
     id      = aws_launch_template.app_lt.id
     version = "$Latest"
   }
-
-  target_group_arns         = [aws_lb_target_group.app_tg.arn]
+  target_group_arns         = var.aws_lb_target_group_arns
   health_check_type         = "ELB"
   health_check_grace_period = 120
-
   tag {
     key                 = "Name"
     value               = "srms-asg-instance-${var.project_suffix}"
     propagate_at_launch = true
   }
 }
-
-
 ####################
 # Target tracking scaling policy (scale on ASG average CPU)
 ####################

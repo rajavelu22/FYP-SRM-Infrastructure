@@ -8,3 +8,14 @@ variable "ssh_allowed_cidr" {
   type        = string
   default     = "0.0.0.0/0"
 }
+#accept the vpc id as input from the vpc module
+variable "vpc_id" {
+  description = "VPC ID where ALB resources will be created"
+  type        = string
+}
+
+variable "public_subnet_ids" {
+  description = "Public subnet IDs for ALB"
+  type        = list(string)
+}
+
